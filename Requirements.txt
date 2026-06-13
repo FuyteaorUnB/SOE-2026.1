@@ -1,0 +1,8 @@
+# Pipeline de visão (rodar na Raspberry Pi / Linux)
+opencv-contrib-python>=4.5   # inclui cv2.face (LBPH); NAO usar opencv-python puro
+numpy
+scikit-image                 # local_binary_pattern (liveness)
+requests                     # notificacao via API do Telegram
+
+# Apenas para a versao main.py (GPIO via biblioteca), na propria Pi:
+# gpiozero
