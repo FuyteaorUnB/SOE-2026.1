@@ -9,8 +9,8 @@ from skimage.feature import local_binary_pattern
 
 warnings.filterwarnings("ignore")
 
-TELEGRAM_TOKEN   = "8627122078:AAGGKiGNXO0hoN4Y4TbhEZKJ2kq6tHwFhqw"
-TELEGRAM_CHAT_ID = "1263343866"
+TELEGRAM_TOKEN   = "INSIRA_TOKEN"
+TELEGRAM_CHAT_ID = "INSIRA_ID"
 PIPE_PATH        = "/tmp/gate_pipe"
 
 if not os.path.exists(PIPE_PATH):
