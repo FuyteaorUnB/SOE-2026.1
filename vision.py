@@ -45,7 +45,7 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
 
 def enviar_telegram(foto_path):
-    if "SEU_TOKEN" in TELEGRAM_TOKEN:
+    if "INSIRA" in TELEGRAM_TOKEN:
         return
     try:
         texto = "[ALERTA] Intruso ou tentativa de spoofing detectada!"
