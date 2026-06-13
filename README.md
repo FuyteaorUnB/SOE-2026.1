@@ -12,23 +12,17 @@ A arquitetura é um **sistema concorrente de dois processos** que se comunicam p
 ```
 .
 ├── README.md
-├── .gitignore
 ├── requirements.txt
 ├── config.example.py        # modelo de configuração (copiar para config.py)
-├── src/
-│   ├── main.cpp             # núcleo de controle (C++)
-│   ├── vision.py            # pipeline de visão + IPC
-│   ├── treinar_e_ver.py     # treino multi-ângulo (7 fases, 210 amostras)
-│   └── treinar_incremental.py
-├── models/
-│   └── haarcascade_frontalface_default.xml
-└── docs/
-    └── Trabalho_SOE.pdf     # relatório PC3
+├── main.cpp                 # núcleo de controle (C++)
+├── vision.py                # pipeline de visão + IPC
+├── treinar_e_ver.py         # treino multi-ângulo (7 fases, 210 amostras)
+├── treinar_incremental.py   # ajuste incremental do modelo
+└── haarcascade_frontalface_default.xml
 ```
 
-> **Observação:** o classificador `classificador_lbph.yml` (~20 MB, dados biométricos)
-> **não** é versionado. Gere-o localmente com `treinar_e_ver.py` ou disponibilize
-> como *Release asset* / Git LFS, se necessário.
+> O classificador `classificador_lbph.yml` (~20 MB, dados biométricos) **não** é
+> versionado. É gerado localmente com `treinar_e_ver.py`.
 
 ## Hardware
 
@@ -37,11 +31,11 @@ A arquitetura é um **sistema concorrente de dois processos** que se comunicam p
 - Driver Darlington (BC548 + TIP31C), diodo *flyback* 1N4007, capacitor 100 µF
 - LED RGB de cátodo comum (3 × resistor 330 Ω), resistor de *pull-down* 10 kΩ
 - Webcam USB
-- **GND comum** entre a fonte de 12 V e a Pi (essencial)
+- **GND comum** entre a fonte de 12 V e a Raspberry Pi (essencial)
 
 GPIOs: trava = `17`; LED R/G/B = `22 / 27 / 10`.
 
-## Dependências (software)
+## Dependências
 
 ```bash
 pip install -r requirements.txt
@@ -52,29 +46,26 @@ pip install -r requirements.txt
 ## Como compilar e rodar
 
 ```bash
-# 1) Núcleo C++ (cria o FIFO e controla o hardware)
-g++ -O2 -pthread src/main.cpp -o gate_control
+# 1) Gerar o modelo facial
+python3 treinar_e_ver.py        # cria classificador_lbph.yml
+
+# 2) Núcleo C++ (cria o FIFO e controla o hardware)
+g++ -O2 -pthread main.cpp -o gate_control
 sudo ./gate_control
 
-# 2) Em outro terminal: pipeline de visão
-python3 src/vision.py
-```
-
-Antes de rodar a visão, gere o modelo:
-
-```bash
-python3 src/treinar_e_ver.py     # cria classificador_lbph.yml
+# 3) Em outro terminal: pipeline de visão
+python3 vision.py
 ```
 
 ## Configuração de segredos
 
-As credenciais do Telegram **não** ficam no código. Copie o modelo e preencha:
+As credenciais do Telegram ficam em `config.py` (fora do controle de versão):
 
 ```bash
-cp config.example.py config.py   # config.py está no .gitignore
+cp config.example.py config.py   # edite config.py com seu token e chat_id
 ```
 
-## Trabalhos futuros (ver relatório)
+## Trabalhos futuros
 
 - Calibração do LBPH (classe negativa `ID=2`, normalização de iluminação da ROI)
 - Migração para *embeddings* faciais por rede neural
