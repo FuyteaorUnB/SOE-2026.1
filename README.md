@@ -316,10 +316,9 @@ A calibração foi **iterativa, com pessoas reais**. Os limiares finais:
 
 ---
 
-## rabalhos futuros
+## Trabalhos futuros
 
 - Substituir o LBPH por **embeddings faciais de rede neural** (mais tolerantes a pose e iluminação).
-- Implementar a **senha temporária para entregadores**.
 - Migrar o acionamento de GPIO de `system("pinctrl")` para **libgpiod** (menos *overhead* e mais determinismo na thread de tempo real).
 
 ---
