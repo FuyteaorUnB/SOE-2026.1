@@ -1,0 +1,14 @@
+# Binários compilados
+sistema_core
+visao
+treinar
+extrair_rostos
+*.o
+
+# Dados biométricos (gerados localmente, não versionar)
+modelo_lbph.txt
+dataset_fernando/
+dataset_outros/
+
+# Saídas de execução
+intruso.jpg
