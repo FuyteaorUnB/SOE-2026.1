@@ -1,6 +1,6 @@
 # Sistema de Controle de Acesso Biométrico
 
-### Reconhecimento facial + *liveness* embarcado, com processamento local e núcleo de tempo real
+### Reconhecimento facial e detecção de vivacidade embarcados, com processamento local e núcleo de tempo real
 
 <p align="center">
   <img alt="Linguagem" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white">
@@ -10,39 +10,39 @@
   <img alt="Edge" src="https://img.shields.io/badge/Edge%20Computing-100%25%20local-2ea44f">
 </p>
 
-> Portaria eletrônica residencial que reconhece o morador, detecta ataques de apresentação (foto/tela) e aciona uma trava solenoide — **sem enviar nenhum dado biométrico para a nuvem**. Todo o processamento acontece dentro de uma Raspberry Pi 3.
+> Portaria eletrônica residencial que reconhece o morador, detecta ataques de apresentação (foto/tela) e aciona uma trava solenoide, sem enviar nenhum dado biométrico para a nuvem. Todo o processamento acontece dentro de uma Raspberry Pi 3.
 
 **Autor:** Fernando de Melo Colli — 231026349
 **Disciplina:** Sistemas Operacionais Embarcados — FCTE / Universidade de Brasília
-**Estágio:** PC4 (refinamento final — migração completa de Python → C/C++)
+**Estágio:** PC4 (refinamento final — migração completa de Python para C/C++)
 
 ---
 
 ## Índice
 
-- [Visão geral](#-visão-geral)
-- [Arquitetura de software](#-arquitetura-de-software)
-- [Hardware](#-hardware)
-- [Como o reconhecimento funciona](#-como-o-reconhecimento-funciona)
-- [Detecção de vivacidade (liveness)](#-detecção-de-vivacidade-liveness)
-- [Recursos de tempo real do Linux](#-recursos-de-tempo-real-do-linux)
-- [Pipeline de visão](#-pipeline-de-visão)
-- [Como rodar](#-como-rodar)
-- [Calibração e resultados](#-calibração-e-resultados)
-- [Estrutura do repositório](#-estrutura-do-repositório)
-- [Trabalhos futuros](#-trabalhos-futuros)
-- [Referências](#-referências)
+- [Visão geral](#visão-geral)
+- [Arquitetura de software](#arquitetura-de-software)
+- [Hardware](#hardware)
+- [Como o reconhecimento funciona](#como-o-reconhecimento-funciona)
+- [Detecção de vivacidade (liveness)](#detecção-de-vivacidade-liveness)
+- [Recursos de tempo real do Linux](#recursos-de-tempo-real-do-linux)
+- [Pipeline de visão](#pipeline-de-visão)
+- [Como rodar](#como-rodar)
+- [Calibração e resultados](#calibração-e-resultados)
+- [Estrutura do repositório](#estrutura-do-repositório)
+- [Trabalhos futuros](#trabalhos-futuros)
+- [Referências](#referências)
 
 ---
 
 ## Visão geral
 
-Diferente de soluções comerciais como Ring ou Nest, que dependem de servidores externos, este projeto realiza **todo o processamento localmente** (*Edge Computing*), mantendo o dado biométrico dentro do dispositivo. O sistema é composto por **dois processos concorrentes** que se comunicam por um *pipe* nomeado (FIFO):
+Diferente de soluções comerciais como Ring ou Nest, que dependem de servidores externos, este projeto realiza todo o processamento localmente (*Edge Computing*), mantendo o dado biométrico dentro do dispositivo. O sistema é composto por **dois processos concorrentes** que se comunicam por um *pipe* nomeado (FIFO):
 
 | Processo | Papel |
 |----------|-------|
 | `visao` | Captura a câmera, reconhece o rosto, verifica *liveness* e emite um veredito (`F` = autorizado, `I` = intruso). |
-| `sistema_core` | Recebe o veredito e controla o hardware (trava solenoide + LED RGB) com garantias de tempo real. |
+| `sistema_core` | Recebe o veredito e controla o hardware (trava solenoide e LED RGB) com garantias de tempo real. |
 
 **Principais características:**
 
@@ -52,7 +52,7 @@ Diferente de soluções comerciais como Ring ou Nest, que dependem de servidores
 - **Anti-spoofing** com 4 métricas de vivacidade (LBP, Laplaciano, Sobel, FFT).
 - Núcleo de controle com **tempo real**: `mlockall`, `SCHED_FIFO`, afinidade de CPU e tarefa periódica absoluta.
 - IPC estável, **sem perda de bytes**, via descritor de leitura persistente com `poll()`.
-- Notificação de intruso (foto) via **Telegram**.
+- Notificação de intruso (foto) via Telegram.
 
 ---
 
@@ -60,7 +60,7 @@ Diferente de soluções comerciais como Ring ou Nest, que dependem de servidores
 
 ```mermaid
 flowchart LR
-    CAM([Webcam USB<br/>320×240]) --> VISAO
+    CAM([Webcam USB 320x240]) --> VISAO
 
     subgraph P1 [Processo: visao]
         VISAO[Reconhecimento facial<br/>+ liveness]
@@ -107,7 +107,11 @@ Toda a matemática compartilhada (Tan-Triggs, LBPH, FFT) vive em um único *head
 | Capacitor Eletrolítico 470 µF / 20 V | 1 |
 | Webcam USB | 1 |
 
-### Estágio de potência
+### Diagrama de blocos
+
+![Diagrama de blocos](docs/diagrama_blocos.png)
+
+### Estágio de potência e esquemático
 
 O acionamento da solenoide usa um **par Darlington (BC548 + TIP31C)** como chave de baixo lado:
 
@@ -118,6 +122,8 @@ O acionamento da solenoide usa um **par Darlington (BC548 + TIP31C)** como chave
 - O **LED RGB** (cátodo comum) é acionado pelas **GPIOs 22 / 27 / 10**, cada perna com um resistor de 330 Ω.
 
 > **Terra comum:** as fontes de 5 V (Pi) e 12 V devem compartilhar o **mesmo terra**. A ausência dessa continuidade causa a anomalia do "LED fantasma".
+
+![Esquemático](docs/esquematico.png)
 
 ---
 
@@ -184,22 +190,7 @@ O núcleo usa duas threads (`std::thread`): uma que escuta o FIFO com `poll()` (
 
 ## Pipeline de visão
 
-```mermaid
-flowchart TD
-    A([Captura de frame]) --> B[Cinza + CLAHE]
-    B --> C{Rosto detectado?<br/>Haar Cascade}
-    C -- não --> A
-    C -- sim --> D[Pré-processo canônico<br/>Tan-Triggs 120×120]
-    D --> E[LBPH predict<br/>rótulo + distância χ²]
-    D --> F[Liveness<br/>LBP · Laplaciano · Sobel · FFT]
-    E --> G[Janela deslizante<br/>10 quadros]
-    F --> G
-    G --> H{≥ 6/10 reais<br/>E ≥ 6/10 usuário<br/>ID=1, Conf<38?}
-    H -- sim --> I[Envia 'F' pelo FIFO]
-    H -- não / fraude --> J[Envia 'I'<br/>+ foto ao Telegram]
-    I --> K([sistema_core:<br/>abre trava])
-    J --> L([sistema_core:<br/>alerta intruso])
-```
+![Fluxograma do pipeline de visão](docs/fluxograma.png)
 
 ---
 
@@ -272,7 +263,7 @@ sudo ./sistema_core
 
 Para as notificações do Telegram, defina o token e o *chat id* no topo do `visao.cpp` antes de compilar.
 
-> `make clean` remove os binários.
+> Os binários carregam `haarcascade_frontalface_default.xml`, `modelo_lbph.txt` e as pastas `dataset_*` **pelo diretório de trabalho atual** — rode-os a partir da pasta onde esses arquivos estão. `make clean` remove os binários.
 
 ---
 
@@ -303,16 +294,24 @@ A calibração foi **iterativa, com pessoas reais**. Os limiares finais:
 
 ```
 .
+├── README.md
+├── Makefile
+├── .gitignore
 ├── core.cpp                              # Núcleo de controle + tempo real
 ├── visao.cpp                             # Pipeline de visão (liveness + reconhecimento)
 ├── visao_core.hpp                        # Algoritmos compartilhados (Tan-Triggs, LBPH, FFT)
 ├── treinar.cpp                           # Treino do classificador
 ├── extrair_rostos.cpp                    # Extração de rostos p/ a classe negativa
-├── Makefile                              # Compilação
-└── haarcascade_frontalface_default.xml   # Detector de rostos
+├── haarcascade_frontalface_default.xml   # Detector de rostos
+└── docs/
+    ├── Trabalho_SOE.pdf                  # Artigo do projeto
+    ├── diagrama_blocos.png
+    ├── esquematico.png
+    ├── fluxograma.png
+    └── SOE-v1.fzz                        # Projeto Fritzing do circuito
 ```
 
-> **Observação:** o modelo `modelo_lbph.txt` e as pastas `dataset_fernando/` e `dataset_outros/` são **dados biométricos**, gerados localmente e **não versionados**.
+> **Observação:** o modelo `modelo_lbph.txt` e as pastas `dataset_fernando/` e `dataset_outros/` são **dados biométricos**, gerados localmente e **não versionados** (ver `.gitignore`).
 
 ---
 
