@@ -18,7 +18,7 @@
 
 ---
 
-## 📑 Índice
+## Índice
 
 - [Visão geral](#-visão-geral)
 - [Arquitetura de software](#-arquitetura-de-software)
@@ -89,7 +89,7 @@ Toda a matemática compartilhada (Tan-Triggs, LBPH, FFT) vive em um único *head
 
 ---
 
-## 🔌 Hardware
+## Hardware
 
 ### Lista de materiais (BOM)
 
@@ -150,7 +150,7 @@ Cada imagem é guardada como uma **amostra individual** — a classe negativa é
 
 ---
 
-## 🛡 Detecção de vivacidade (liveness)
+## Detecção de vivacidade (liveness)
 
 Para cada quadro, quatro métricas atacam ataques de apresentação (foto impressa ou tela de celular):
 
@@ -165,7 +165,7 @@ Um quadro é considerado **REAL** se o *score* ≥ 3 **e** LBP **e** FFT passare
 
 ---
 
-## ⚙ Recursos de tempo real do Linux
+## Recursos de tempo real do Linux
 
 O `sistema_core` emprega recursos de tempo real para garantir **latência determinística** no acionamento da trava:
 
