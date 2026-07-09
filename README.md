@@ -357,7 +357,6 @@ A calibração foi **iterativa, com pessoas reais** (modo `--calibrar`). Os limi
 
 - Substituir o LBPH por **embeddings faciais de rede neural** (mais tolerantes a pose e iluminação).
 - Migrar o acionamento de GPIO de `system("pinctrl")` para **libgpiod** (menos *overhead* e mais determinismo na thread de tempo real).
-- **Senha temporária para entregadores**, prevista desde o PC1.
 
 ---
 
