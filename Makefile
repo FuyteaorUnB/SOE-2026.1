@@ -1,18 +1,22 @@
-# Binarios
-sistema_core
-visao
-treinar
-extrair_rostos
-*.o
+# Makefile - Sistema de Controle de Acesso
+CXX       := g++
+COREFLAGS := -O2 -pthread
+CVFLAGS   := -O2 -std=c++17 $(shell pkg-config --cflags opencv4)
+CVLIBS    := $(shell pkg-config --libs opencv4)
 
-# Dados biometricos e modelo (nunca versionar)
-dataset_*/
-modelo_lbph.txt
-fotos_baixadas/
-fotos_diversas/
-fotos_*/
-intruso.jpg
+all: sistema_core visao treinar
 
-# Temporarios
-*.log
-*.tmp
+sistema_core: core.cpp
+	$(CXX) $(COREFLAGS) core.cpp -o sistema_core
+
+visao: visao.cpp visao_core.hpp
+	$(CXX) $(CVFLAGS) visao.cpp -o visao $(CVLIBS)
+
+treinar: treinar.cpp visao_core.hpp
+	$(CXX) $(CVFLAGS) treinar.cpp -o treinar $(CVLIBS)
+
+core: sistema_core
+clean:
+	rm -f sistema_core visao treinar
+
+.PHONY: all clean core
