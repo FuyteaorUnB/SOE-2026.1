@@ -1,14 +1,18 @@
-# Binários compilados
+# Binarios
 sistema_core
 visao
 treinar
 extrair_rostos
 *.o
 
-# Dados biométricos (gerados localmente, não versionar)
+# Dados biometricos e modelo (nunca versionar)
+dataset_*/
 modelo_lbph.txt
-dataset_fernando/
-dataset_outros/
-
-# Saídas de execução
+fotos_baixadas/
+fotos_diversas/
+fotos_*/
 intruso.jpg
+
+# Temporarios
+*.log
+*.tmp
