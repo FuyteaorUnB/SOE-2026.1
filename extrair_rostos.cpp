@@ -19,8 +19,13 @@ int main(int argc, char** argv)
     }
     
     fs::create_directories("dataset_outros");
+
+    // Continua a numeracao a partir dos arquivos ja existentes (nao sobrescreve).
     int total = 0;
-    
+    for (const auto& e : fs::directory_iterator("dataset_outros"))
+        if (e.path().extension() == ".jpg") total++;
+    int inicial = total;
+
     for (int a = 1; a < argc; ++a) {
         cv::Mat img = cv::imread(argv[a], cv::IMREAD_GRAYSCALE);
         if (img.empty()) { 
@@ -44,6 +49,7 @@ int main(int argc, char** argv)
         std::cout << argv[a] << ": " << rostos.size() << " rostos extraidos\n";
     }
     
-    std::cout << "Total de " << total << " rostos salvos em dataset_outros/\n";
+    std::cout << "Total de " << (total - inicial) << " novos rostos ("
+              << total << " no total) em dataset_outros/\n";
     return 0;
 }
