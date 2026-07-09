@@ -4,6 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <deque>
+#include <map>
 #include <string>
 #include <ctime>
 #include <cstdio>
@@ -16,8 +17,8 @@
 #include <sys/types.h>
 
 // Configurações do Telegram
-static const std::string TELEGRAM_TOKEN   = "INSERIR_TOKEN";
-static const std::string TELEGRAM_CHAT_ID = "INSERIR_ID";
+static const std::string TELEGRAM_TOKEN   = "8627122078:AAGGKiGNXO0hoN4Y4TbhEZKJ2kq6tHwFhqw";
+static const std::string TELEGRAM_CHAT_ID = "1263343866";
 
 static const std::string PIPE_PATH = "/tmp/gate_pipe";
 
@@ -26,11 +27,15 @@ static double LBP_MIN      = 3.7;
 static double LAP_MIN      = 28.0;
 static double GRAD_STD_MIN = 12.0;
 static double FFT_RATIO    = 0.65;
-static int    SCORE_MIN    = 3;      
+static int    SCORE_MIN    = 3;
 static double CONF_MAX     = 38.0;
 
+// Rotulo da classe negativa; qualquer outro rotulo reconhecido e usuario autorizado.
+static const int LABEL_NEGATIVO = 2;
+
 static const int    JANELA_FRAMES       = 10;
-static const int    MINIMO_REAIS_JANELA = 6;
+static const int    MINIMO_REAIS_JANELA = 6;   // quadros reais (liveness) na janela
+static const int    MINIMO_AUT_JANELA   = 9;   // quadros da mesma identidade autorizada
 static const double LAP_PICO_MIN        = 80.0;
 static const double TEMPO_RESET         = 12.0;
 
@@ -108,7 +113,8 @@ int main(int argc, char** argv)
 
     cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(2.0, cv::Size(8, 8));
 
-    std::deque<bool>   janelaLive, janelaId;
+    std::deque<bool>   janelaLive;
+    std::deque<int>    janelaId;    // rótulo autorizado por quadro (0 = nao autorizado)
     std::deque<double> janelaLap;
     double ultimoTempo = 0.0, ultimaNotif = 0.0;
 
@@ -137,7 +143,7 @@ int main(int argc, char** argv)
             if (face.empty()) { cv::waitKey(1); continue; }
 
             auto [idUsuario, conf] = modelo.predict(face);
-            bool ehAutorizado = (idUsuario == 1) && (conf < CONF_MAX);
+            bool ehAutorizado = (idUsuario >= 1) && (idUsuario != LABEL_NEGATIVO) && (conf < CONF_MAX);
 
             double vLbp  = soe::lbpUniformVar(face);
 
@@ -172,7 +178,7 @@ int main(int argc, char** argv)
             std::fflush(stdout);
 
             janelaLive.push_back(ehReal);
-            janelaId.push_back(ehAutorizado);
+            janelaId.push_back(ehAutorizado ? idUsuario : 0);
             janelaLap.push_back(vLap);
             
             if ((int)janelaLive.size() > JANELA_FRAMES) { 
@@ -180,13 +186,26 @@ int main(int argc, char** argv)
             }
             ultimoTempo = agora;
 
-            if (!modoCalibrar && (int)janelaLive.size() >= JANELA_FRAMES) {
-                int framesReais    = 0; for (bool b : janelaLive) framesReais    += b;
-                int framesAut      = 0; for (bool b : janelaId)   framesAut      += b;
+            if ((int)janelaLive.size() >= JANELA_FRAMES) {
+                int framesReais    = 0; for (bool b : janelaLive) framesReais += b;
+                // framesAut = maior nº de quadros da mesma identidade autorizada na janela
+                std::map<int,int> contId;
+                for (int lab : janelaId) if (lab != 0) contId[lab]++;
+                int framesAut = 0, rotuloDom = 0;
+                for (const auto& kv : contId)
+                    if (kv.second > framesAut) { framesAut = kv.second; rotuloDom = kv.first; }
+
                 double picoLap     = 0; for (double v : janelaLap) picoLap = std::max(picoLap, v);
                 bool passouPico    = picoLap > LAP_PICO_MIN;
+                bool abriria = (framesReais >= MINIMO_REAIS_JANELA && passouPico && framesAut >= MINIMO_AUT_JANELA);
 
-                if (framesReais >= MINIMO_REAIS_JANELA && passouPico && framesAut >= MINIMO_REAIS_JANELA) {
+                if (modoCalibrar) {
+                    std::printf("   [JANELA] reais=%d/%d  aut=%d/%d (rotulo %d)  picoLap=%.0f  -> %s\n",
+                        framesReais, JANELA_FRAMES, framesAut, JANELA_FRAMES, rotuloDom, picoLap,
+                        abriria ? "ABRIRIA" : "nao abre");
+                    std::fflush(stdout);
+                }
+                else if (abriria) {
                     std::cout << "[ACESSO CONCEDIDO] Identidade e liveness confirmados.\n";
                     enviarSinalPipe('F');
                     janelaLive.clear(); janelaId.clear(); janelaLap.clear();
