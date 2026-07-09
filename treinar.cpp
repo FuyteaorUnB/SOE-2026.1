@@ -12,13 +12,31 @@
 
 namespace fs = std::filesystem;
 
-// Adiciona uma face normalizada ao modelo
+// Usuarios autorizados: cada um tem sua pasta e um rotulo unico (!= LABEL_NEGATIVO).
+struct Usuario { std::string pasta; int label; };
+static const std::vector<Usuario> USUARIOS_AUTORIZADOS = {
+    {"dataset_fernando", 1},
+    {"dataset_amigo",    3},
+    // {"dataset_amigo2", 4},  // desativado
+};
+static const std::string PASTA_NEGATIVOS = "dataset_outros";
+static const int         LABEL_NEGATIVO  = 2;
+
+// Espelhamento horizontal para dobrar as amostras (desativado).
+static const bool AUMENTAR_ESPELHANDO = false;
+
+// Adiciona a face normalizada ao modelo (e a versao espelhada, se habilitado).
 static void adicionarFace(soe::LBPHModel& modelo, const cv::Mat& roiGray, int label)
 {
     cv::Mat resized;
     cv::resize(roiGray, resized, cv::Size(soe::FACE_SIZE, soe::FACE_SIZE), 0, 0, cv::INTER_AREA);
-    cv::Mat norm = soe::tanTriggs(resized);
-    modelo.add(norm, label);
+    modelo.add(soe::tanTriggs(resized), label);
+
+    if (AUMENTAR_ESPELHANDO) {
+        cv::Mat espelhado;
+        cv::flip(resized, espelhado, 1);
+        modelo.add(soe::tanTriggs(espelhado), label);
+    }
 }
 
 // Carrega imagens de um diretório
@@ -68,9 +86,9 @@ static bool abrirCamera(cv::VideoCapture& cap) {
     return false;
 }
 
-static int capturarMultiAngulo(soe::LBPHModel& modelo)
+static int capturarMultiAngulo(soe::LBPHModel& modelo, const std::string& pasta, int label)
 {
-    fs::create_directories("dataset_fernando");
+    fs::create_directories(pasta);
 
     cv::CascadeClassifier cascade;
     if (!cascade.load("haarcascade_frontalface_default.xml")) {
@@ -118,11 +136,11 @@ static int capturarMultiAngulo(soe::LBPHModel& modelo)
             cv::Mat roi120; 
             cv::resize(roi, roi120, cv::Size(soe::FACE_SIZE, soe::FACE_SIZE), 0,0, cv::INTER_AREA);
 
-            char nome[128];
-            std::snprintf(nome, sizeof(nome), "dataset_fernando/f%zu_a%03d.jpg", fi+1, cont);
+            char nome[192];
+            std::snprintf(nome, sizeof(nome), "%s/f%zu_a%03d.jpg", pasta.c_str(), fi+1, cont);
             cv::imwrite(nome, roi120);
 
-            adicionarFace(modelo, roi120, 1);
+            adicionarFace(modelo, roi120, label);
             cont++; total++;
             
             std::cout << "[" << cont << "/" << AMOSTRAS_POR_FASE << "] total=" << total << "\r" << std::flush;
@@ -140,20 +158,32 @@ int main(int argc, char** argv)
     soe::LBPHModel modelo;
 
     if (capturar) {
-        std::cout << "Iniciando treino por captura multi-angulo...\n";
-        int n = capturarMultiAngulo(modelo);
+        // Uso: ./treinar --capturar [pasta] [rotulo]   (padrao: dataset_fernando 1)
+        std::string pasta = (argc > 2) ? argv[2] : "dataset_fernando";
+        int         label = (argc > 3) ? std::stoi(argv[3]) : 1;
+        std::cout << "Captura multi-angulo em " << pasta << " (rotulo " << label << ")...\n";
+
+        int n = capturarMultiAngulo(modelo, pasta, label);
         if (n <= 0) return 1;
-        std::cout << "\nCapturadas " << n << " amostras.\n";
+        std::cout << "\nCapturadas " << n << " amostras do usuario.\n";
+
+        // Carrega os demais datasets para o modelo ficar completo.
+        for (const auto& u : USUARIOS_AUTORIZADOS)
+            if (u.pasta != pasta) carregarPasta(modelo, u.pasta, u.label);
+        carregarPasta(modelo, PASTA_NEGATIVOS, LABEL_NEGATIVO);
     } else {
         std::cout << "Iniciando treino a partir dos datasets...\n";
-        int n1 = carregarPasta(modelo, "dataset_fernando", 1);
-        int n2 = carregarPasta(modelo, "dataset_outros",   2);
-        
-        std::cout << "dataset_fernando/ : " << n1 << " amostras\n";
-        std::cout << "dataset_outros/   : " << n2 << " amostras\n";
-        
-        if (n1 == 0) {
-            std::cerr << "Erro: dataset vazio. Use --capturar.\n";
+        int totalAut = 0;
+        for (const auto& u : USUARIOS_AUTORIZADOS) {
+            int n = carregarPasta(modelo, u.pasta, u.label);
+            std::cout << u.pasta << " (rotulo " << u.label << "): " << n << " amostras\n";
+            totalAut += n;
+        }
+        int nNeg = carregarPasta(modelo, PASTA_NEGATIVOS, LABEL_NEGATIVO);
+        std::cout << PASTA_NEGATIVOS << " (rotulo " << LABEL_NEGATIVO << "): " << nNeg << " amostras\n";
+
+        if (totalAut == 0) {
+            std::cerr << "Erro: nenhum dataset de usuario encontrado. Use --capturar.\n";
             return 1;
         }
     }
