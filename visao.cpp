@@ -17,8 +17,8 @@
 #include <sys/types.h>
 
 // Configurações do Telegram
-static const std::string TELEGRAM_TOKEN   = "8627122078:AAGGKiGNXO0hoN4Y4TbhEZKJ2kq6tHwFhqw";
-static const std::string TELEGRAM_CHAT_ID = "1263343866";
+static const std::string TELEGRAM_TOKEN   = "INSERIR_TOKEN";
+static const std::string TELEGRAM_CHAT_ID = "INSERIR_ID";
 
 static const std::string PIPE_PATH = "/tmp/gate_pipe";
 
